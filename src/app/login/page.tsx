@@ -1,3 +1,4 @@
+import SubmitButton from "@/components/SubmitButton";
 import { sendMagicLink } from "./actions";
 
 export default async function LoginPage({
@@ -30,7 +31,7 @@ export default async function LoginPage({
             placeholder="you@example.com"
             className="input"
           />
-          <button className="btn-primary">로그인 링크 받기</button>
+          <SubmitButton pendingText="보내는 중…">로그인 링크 받기</SubmitButton>
         </form>
       )}
 
@@ -38,7 +39,9 @@ export default async function LoginPage({
         <p className="text-sm text-danger">
           {error === "callback"
             ? "링크가 만료됐거나 다른 브라우저에서 열렸어요. 다시 요청해 주세요."
-            : "메일을 보내지 못했어요. 잠시 후 다시 시도해 주세요."}
+            : error === "rate"
+              ? "메일을 너무 자주 요청했어요. 방금 보낸 메일이 있다면 그 링크를 쓰고, 없다면 1분 뒤 다시 시도해 주세요."
+              : "메일을 보내지 못했어요. 잠시 후 다시 시도해 주세요."}
         </p>
       )}
     </main>

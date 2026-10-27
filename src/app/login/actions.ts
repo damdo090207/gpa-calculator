@@ -18,8 +18,9 @@ export async function sendMagicLink(formData: FormData) {
   });
 
   if (error) {
-    console.error("signInWithOtp", error.message);
-    redirect("/login?error=send");
+    console.error("signInWithOtp", error.code, error.message);
+    // 429 = 같은 이메일로 60초 안에 다시 요청했거나, 시간당 발송 한도 초과
+    redirect(error.status === 429 ? "/login?error=rate" : "/login?error=send");
   }
   redirect("/login?sent=1");
 }
