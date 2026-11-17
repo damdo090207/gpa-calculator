@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatGpa, gradesFor, isForeignGrade, planTarget, summarize } from "./gpa";
+import { formatGpa, gpaTrend, gradesFor, isForeignGrade, planTarget, summarize } from "./gpa";
 
 describe("summarize (4.3 만점)", () => {
   it("빈 목록이면 평점은 null", () => {
@@ -137,6 +137,37 @@ describe("planTarget (목표 평점 역산)", () => {
     // 목표 4.3, 남은 3학점: (4.3×6 − 12) / 3 = 4.6 → 불가능, 목표 4.2: (25.2−12)/3 = 4.4 → A+
     expect(planTarget(s45, "4.5", 4.3, 1, 3).status).toBe("impossible");
     expect(planTarget(s45, "4.5", 4.2, 1, 3)).toMatchObject({ status: "ok", required: 4.4, grade: "A+" });
+  });
+});
+
+describe("gpaTrend (학기별 평점 변화)", () => {
+  const A = (credits: number, grade: string | null, is_pf = false) => ({ credits, is_pf, grade });
+
+  it("오래된 학기부터, 학기 평점과 그때까지의 누적 평점을 낸다", () => {
+    const t = gpaTrend([
+      { year: 2026, term: "2", courses: [A(2, "B0")] },
+      { year: 2025, term: "2", courses: [A(3, "A+")] },
+      { year: 2026, term: "1", courses: [A(3, "A0")] },
+    ]);
+    expect(t.map((p) => `${p.year}-${p.term}`)).toEqual(["2025-2", "2026-1", "2026-2"]);
+    expect(t.map((p) => p.semesterGpa)).toEqual([4.3, 4, 3]);
+    // 누적: 4.3 → (12.9+12)/6 = 4.15 → (24.9+6)/8 = 3.8625
+    expect(t[1].cumulativeGpa).toBeCloseTo(4.15, 10);
+    expect(t[2].cumulativeGpa).toBeCloseTo(3.8625, 10);
+  });
+
+  it("평점을 낼 수 없는 학기(성적 미정·P/F만)는 빼고, 누적에는 영향이 없다", () => {
+    const t = gpaTrend([
+      { year: 2026, term: "1", courses: [A(3, "A0")] },
+      { year: 2026, term: "S", courses: [A(1, "P", true)] },
+      { year: 2026, term: "2", courses: [A(3, null)] },
+    ]);
+    expect(t).toHaveLength(1);
+    expect(t[0].cumulativeGpa).toBe(4);
+  });
+
+  it("학점 체계를 따른다", () => {
+    expect(gpaTrend([{ year: 2026, term: "1", courses: [A(3, "A+")] }], "4.5")[0].semesterGpa).toBe(4.5);
   });
 });
 

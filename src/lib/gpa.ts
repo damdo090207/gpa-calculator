@@ -168,6 +168,30 @@ function gradeAtLeast(value: number, scale: Scale): LetterGrade {
   return candidates.find((g) => POINTS_X10[scale][g] / 10 >= value) ?? "A+";
 }
 
+export type TrendPoint = {
+  year: number;
+  term: string;
+  semesterGpa: number;   // 그 학기 평점
+  cumulativeGpa: number; // 그 학기까지의 누적 평점
+};
+
+// 학기별 평점 변화 (오래된 학기부터). 성적이 나온 등급 과목이 없는 학기는 점을 찍을 수 없어 뺀다.
+export function gpaTrend(
+  semesters: { year: number; term: string; courses: GradedCourse[] }[],
+  scale: Scale = DEFAULT_SCALE,
+): TrendPoint[] {
+  const sorted = [...semesters].sort((a, b) => a.year - b.year || termOrder(a.term) - termOrder(b.term));
+  const sofar: GradedCourse[] = [];
+  const points: TrendPoint[] = [];
+  for (const s of sorted) {
+    sofar.push(...s.courses);
+    const semesterGpa = summarize(s.courses, scale).gpa;
+    if (semesterGpa == null) continue;
+    points.push({ year: s.year, term: s.term, semesterGpa, cumulativeGpa: summarize(sofar, scale).gpa! });
+  }
+  return points;
+}
+
 export const TERMS = [
   { value: "1", label: "1학기" },
   { value: "S", label: "여름학기" },

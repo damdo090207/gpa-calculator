@@ -1,10 +1,11 @@
 import { redirect } from "next/navigation";
-import { formatGpa, summarize, termOrder } from "@/lib/gpa";
+import { formatGpa, gpaTrend, summarize, termOrder } from "@/lib/gpa";
 import { readSettings } from "@/lib/settings";
 import { createClient } from "@/lib/supabase/server";
 import type { Semester } from "@/lib/types";
 import { signOut } from "./login/actions";
 import AddSemesterForm from "@/components/AddSemesterForm";
+import GpaChart from "@/components/GpaChart";
 import ScaleSelect from "@/components/ScaleSelect";
 import SemesterCard from "@/components/SemesterCard";
 import TargetCalculator from "@/components/TargetCalculator";
@@ -61,6 +62,8 @@ export default async function Home() {
         settings={settings}
         defaultCredits={defaultCredits}
       />
+
+      <GpaChart points={gpaTrend(semesters, scale)} scale={scale} target={settings.target} />
 
       {error && <p className="mt-4 text-sm text-danger">데이터를 불러오지 못했어요: {error.message}</p>}
 

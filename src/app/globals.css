@@ -11,6 +11,9 @@
   --accent-fg: #ffffff;
   --danger: #c92a2a;
   --ok: #2b8a3e;
+  /* 그래프 계열 색 (색각 이상 검사 통과한 조합) */
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -24,6 +27,8 @@
     --accent-fg: #0d1020;
     --danger: #ff6b6b;
     --ok: #69db7c;
+    --series-1: #3987e5;
+    --series-2: #d95926;
   }
 }
 
