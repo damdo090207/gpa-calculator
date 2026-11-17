@@ -3,11 +3,11 @@
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { deleteCourse, deleteSemester, saveCourse, type CourseInput } from "@/app/actions";
-import { LETTER_GRADES, PF_GRADES, formatGpa, summarize, termLabel } from "@/lib/gpa";
+import { PF_GRADES, formatGpa, gradesFor, isForeignGrade, summarize, termLabel, type Scale } from "@/lib/gpa";
 import type { Course, Semester } from "@/lib/types";
 
-export default function SemesterCard({ semester }: { semester: Semester }) {
-  const s = summarize(semester.courses);
+export default function SemesterCard({ semester, scale }: { semester: Semester; scale: Scale }) {
+  const s = summarize(semester.courses, scale);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -45,18 +45,19 @@ export default function SemesterCard({ semester }: { semester: Semester }) {
               <CourseForm
                 semesterId={semester.id}
                 course={c}
+                scale={scale}
                 onDone={() => setEditingId(null)}
               />
             </li>
           ) : (
-            <CourseRow key={c.id} course={c} onEdit={() => setEditingId(c.id)} />
+            <CourseRow key={c.id} course={c} scale={scale} onEdit={() => setEditingId(c.id)} />
           ),
         )}
       </ul>
 
       <div className="border-t border-line px-4 py-3">
         {adding ? (
-          <CourseForm semesterId={semester.id} onDone={() => setAdding(false)} keepOpen />
+          <CourseForm semesterId={semester.id} scale={scale} onDone={() => setAdding(false)} keepOpen />
         ) : (
           <button className="btn-ghost" onClick={() => setAdding(true)}>+ 과목 추가</button>
         )}
@@ -65,7 +66,8 @@ export default function SemesterCard({ semester }: { semester: Semester }) {
   );
 }
 
-function CourseRow({ course, onEdit }: { course: Course; onEdit: () => void }) {
+function CourseRow({ course, scale, onEdit }: { course: Course; scale: Scale; onEdit: () => void }) {
+  const foreign = isForeignGrade(course.grade, scale);
   const [pending, startTransition] = useTransition();
   const remove = () => {
     if (!confirm(`'${course.name}' 과목과 그 안의 필기·파일을 모두 지울까요?`)) return;
@@ -82,6 +84,11 @@ function CourseRow({ course, onEdit }: { course: Course; onEdit: () => void }) {
       </Link>
       {course.is_pf && <span className="rounded bg-bg px-1.5 py-0.5 text-xs text-muted">P/F</span>}
       <span className="w-12 text-right text-sm tabular-nums text-muted">{Number(course.credits)}학점</span>
+      {foreign && (
+        <span className="text-xs text-danger" title={`${scale} 체계에는 없는 등급이라 ${course.grade![0]}0으로 계산해요.`}>
+          {course.grade![0]}0으로 계산
+        </span>
+      )}
       <span className={`w-10 text-right font-semibold tabular-nums ${gradeColor(course.grade)}`}>
         {course.grade ?? "-"}
       </span>
@@ -102,22 +109,27 @@ function gradeColor(grade: string | null) {
 function CourseForm({
   semesterId,
   course,
+  scale,
   onDone,
   keepOpen,
 }: {
   semesterId: string;
   course?: Course;
+  scale: Scale;
   onDone: () => void;
   keepOpen?: boolean; // 새 과목 추가 시 저장 후 폼을 비우고 계속 입력
 }) {
   const [name, setName] = useState(course?.name ?? "");
   const [credits, setCredits] = useState(String(course ? Number(course.credits) : 3));
   const [isPf, setIsPf] = useState(course?.is_pf ?? false);
-  const [grade, setGrade] = useState(course?.grade ?? "");
+  // 이 체계에 없는 등급으로 저장된 과목을 수정할 때는 다시 고르도록 비워 둔다
+  const [grade, setGrade] = useState(
+    course?.grade && !isForeignGrade(course.grade, scale) ? course.grade : "",
+  );
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  const grades = isPf ? PF_GRADES : LETTER_GRADES;
+  const grades = isPf ? PF_GRADES : gradesFor(scale);
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();

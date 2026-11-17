@@ -15,6 +15,9 @@ export default async function LoginPage({
         <p className="mt-1 text-sm text-muted">
           이메일로 로그인 링크를 보내드려요. 비밀번호는 필요 없어요.
         </p>
+        <p className="mt-3 rounded-lg bg-card px-3 py-2 text-sm">
+          로그인하면 <b>성적·평점·목표 평점 계산</b>과 <b>과목별 노트·손필기·파일</b>이 내 계정에 저장돼서, 어느 기기에서든 이어서 볼 수 있어요.
+        </p>
       </div>
 
       {sent ? (

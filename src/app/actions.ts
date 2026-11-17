@@ -1,10 +1,32 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { LETTER_GRADES, PF_GRADES, TERMS } from "@/lib/gpa";
+import { LETTER_GRADES, PF_GRADES, TERMS, isScale, maxPoint } from "@/lib/gpa";
+import { readSettings, toMetadata, type Settings } from "@/lib/settings";
 import { createClient } from "@/lib/supabase/server";
 
 export type ActionResult = { error?: string };
+
+// 학점 체계·목표 평점 설정 저장 (user_metadata 에 합쳐서 저장)
+export async function saveSettings(patch: Partial<Settings>): Promise<ActionResult> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "로그인이 필요해요." };
+
+  const next = { ...readSettings(user.user_metadata), ...patch };
+  if (!isScale(next.scale)) return { error: "학점 체계를 다시 골라 주세요." };
+  // readSettings 를 다시 거쳐서 범위를 벗어난 값은 저장하지 않는다
+  const clean = readSettings(toMetadata(next));
+  // 목표를 새로 넣을 때만 만점 이하인지 본다 (체계만 바꿀 때 예전 목표 때문에 막히지 않게)
+  if (patch.target != null && (clean.target == null || patch.target > maxPoint(next.scale))) {
+    return { error: `목표 평점은 0~${next.scale} 사이로 입력해 주세요.` };
+  }
+
+  const { error } = await supabase.auth.updateUser({ data: toMetadata(clean) });
+  if (error) return { error: "설정을 저장하지 못했어요." };
+  revalidatePath("/");
+  return {};
+}
 
 export async function addSemester(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
   const year = Number(formData.get("year"));

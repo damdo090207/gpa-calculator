@@ -1,10 +1,13 @@
 import { redirect } from "next/navigation";
 import { formatGpa, summarize, termOrder } from "@/lib/gpa";
+import { readSettings } from "@/lib/settings";
 import { createClient } from "@/lib/supabase/server";
 import type { Semester } from "@/lib/types";
 import { signOut } from "./login/actions";
 import AddSemesterForm from "@/components/AddSemesterForm";
+import ScaleSelect from "@/components/ScaleSelect";
 import SemesterCard from "@/components/SemesterCard";
+import TargetCalculator from "@/components/TargetCalculator";
 
 export default async function Home() {
   const supabase = await createClient();
@@ -20,7 +23,15 @@ export default async function Home() {
   const semesters = ((data ?? []) as Semester[]).sort(
     (a, b) => b.year - a.year || termOrder(b.term) - termOrder(a.term),
   );
-  const total = summarize(semesters.flatMap((s) => s.courses));
+  const settings = readSettings(user.user_metadata);
+  const { scale } = settings;
+  const total = summarize(semesters.flatMap((s) => s.courses), scale);
+
+  // 학기당 학점 기본값: 과목이 있는 학기들의 평균 학점 (0.5 단위), 없으면 18
+  const filled = semesters.map((s) => summarize(s.courses, scale).totalCredits).filter((c) => c > 0);
+  const defaultCredits = filled.length
+    ? Math.round((filled.reduce((a, b) => a + b, 0) / filled.length) * 2) / 2
+    : 18;
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-6 sm:py-10">
@@ -32,12 +43,24 @@ export default async function Home() {
         </form>
       </header>
 
-      <section className="card mt-5 grid grid-cols-2 gap-4 p-5 sm:grid-cols-4">
-        <Stat label="누적 평점" value={formatGpa(total.gpa)} sub="/ 4.3" big />
+      <div className="mt-5 flex justify-end">
+        <ScaleSelect scale={scale} />
+      </div>
+
+      <section className="card mt-2 grid grid-cols-2 gap-4 p-5 sm:grid-cols-4">
+        <Stat label="누적 평점" value={formatGpa(total.gpa)} sub={`/ ${scale}`} big />
         <Stat label="취득 학점" value={String(total.earnedCredits)} />
         <Stat label="평점 반영 학점" value={String(total.gpaCredits)} />
         <Stat label="수강 중" value={String(total.pendingCredits)} />
       </section>
+
+      <TargetCalculator
+        key={scale}
+        summary={total}
+        scale={scale}
+        settings={settings}
+        defaultCredits={defaultCredits}
+      />
 
       {error && <p className="mt-4 text-sm text-danger">데이터를 불러오지 못했어요: {error.message}</p>}
 
@@ -47,7 +70,7 @@ export default async function Home() {
 
       <div className="mt-4 flex flex-col gap-4">
         {semesters.map((s) => (
-          <SemesterCard key={s.id} semester={s} />
+          <SemesterCard key={s.id} semester={s} scale={scale} />
         ))}
         {semesters.length === 0 && !error && (
           <p className="py-10 text-center text-sm text-muted">학기를 추가하고 과목을 입력해 보세요.</p>
